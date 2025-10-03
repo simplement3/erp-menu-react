@@ -5,7 +5,12 @@ export interface Pedido {
   telefono: string;
   direccion?: string;
   tipo_pedido: 'local' | 'delivery';
-  productos: { id_producto: number; nombre: string; cantidad: number; precio: number }[];
+  productos: {
+    id_producto: number;
+    nombre: string;
+    cantidad: number;
+    precio: number;
+  }[];
   total: number;
   estado_pago: 'pendiente' | 'pagado' | 'rechazado';
   fecha: string;
