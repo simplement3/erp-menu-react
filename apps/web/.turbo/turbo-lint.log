@@ -1,0 +1,10 @@
+
+[2K[1G[1myarn run v1.22.22[22m
+[2K[1G[2m$ next lint --max-warnings 0[22m
+[33m`next lint` is deprecated and will be removed in Next.js 16.
+[39mFor new projects, use [1mcreate-next-app[22m to choose your preferred linter.
+For existing projects, migrate to the ESLint CLI:
+[1mnpx @next/codemod@canary next-lint-to-eslint-cli .[22m
+
+[32m✔ No ESLint warnings or errors[39m
+[2K[1G✨  Done in 4.76s.
