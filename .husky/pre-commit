@@ -1,2 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env sh
+
+
+PATH=$PATH:./node_modules/.bin
 yarn lint && yarn format
