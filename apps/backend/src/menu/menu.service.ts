@@ -24,6 +24,20 @@ export class MenuService {
     // Lógica legacy: platillos con stock positivo de insumos
     return this.menuRepository
       .createQueryBuilder('platillo')
+      .select([
+        // Agregamos select explícito con SOLO columnas que existen en DB
+        'platillo.id',
+        'platillo.categoria',
+        'platillo.nombre',
+        'platillo.costo_neto',
+        'platillo.iva',
+        'platillo.costo_bruto',
+        'platillo.costo_trans',
+        'platillo.utilidad',
+        'platillo.valor_venta',
+        'platillo.id_negocio',
+        // NO agregues createdAt ni updatedAt —eso causa el error
+      ])
       .leftJoin('platillo.ingredientes', 'ingrediente') // Asume relación con Ingredientes entity
       .leftJoin('ingrediente.insumo', 'insumo')
       .leftJoin(

@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common'; //quite el Param porque no estaba siendo usado
 
 @Controller('api/pedidos')
 export class PedidosController {
