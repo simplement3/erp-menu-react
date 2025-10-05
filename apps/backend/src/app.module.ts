@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
+import { WebsocketsModule } from './websockets/websockets.module';
 import { NegociosModule } from './negocios/negocios.module'; // Agrega este import
 
 @Module({
@@ -40,6 +41,7 @@ import { NegociosModule } from './negocios/negocios.module'; // Agrega este impo
     PedidosModule,
     AuthModule,
     MenuModule,
+    WebsocketsModule,
     NegociosModule, // Agrega esto al array de imports
   ],
   controllers: [AppController],

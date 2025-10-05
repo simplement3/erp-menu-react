@@ -12,7 +12,7 @@ export class AuthService {
     const user = { id: 1, email, rol: 'admin' }; // Mock
     if (password !== 'test') throw new Error('Invalid password');
 
-    const payload = { id: user.id, email, rol: user.rol }; // Usa payload
+    // const payload = { id: user.id, email, rol: user.rol }; // Usa payload
     return {
       token: this.jwtService.sign({ id: user.id, email, rol: user.rol }),
     };

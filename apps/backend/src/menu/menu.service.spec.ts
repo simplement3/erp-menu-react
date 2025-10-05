@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MenuService } from './menu.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Menu } from './entities/menu.entity'; // Asegúrate de que la ruta sea correcta
+import { MenuEntity } from '../menu/entities/menu.entity'; // Asegúrate de que la ruta sea correcta
 import { Repository } from 'typeorm';
 
 describe('MenuService', () => {
   let service: MenuService;
-  let mockRepository: Partial<Repository<Menu>>; // Mock del repository
+  let mockRepository: Partial<Repository<MenuEntity>>; // Mock del repository
 
   beforeEach(async () => {
     mockRepository = {
@@ -18,7 +18,7 @@ describe('MenuService', () => {
       providers: [
         MenuService,
         {
-          provide: getRepositoryToken(Menu), // Proporciona el mock del repository
+          provide: getRepositoryToken(MenuEntity), // Proporciona el mock del repository
           useValue: mockRepository,
         },
       ],

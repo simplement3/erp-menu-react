@@ -2,18 +2,20 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  CreateDateColumn,
+  UpdateDateColumn,
   OneToMany,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Negocio } from '../../negocios/negocio.entity'; // Ajusta este path si es necesario (e.g., '../negocios/entities/negocio.entity' si están al mismo nivel)
+import { Negocio } from '../../negocios/negocio.entity'; // Ajustado a un path más común; cambia si es necesario (e.g., '../../negocios/negocio.entity')
 
 @Entity('insumos')
 export class Insumo {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'varchar', length: 255 })
   nombre: string;
 
   @OneToMany(() => Ingrediente, (ingrediente) => ingrediente.insumo)
@@ -21,6 +23,12 @@ export class Insumo {
 
   @OneToMany(() => Inventario, (inventario) => inventario.insumo)
   inventario: Inventario[];
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
 
 @Entity('platillos')
@@ -28,40 +36,45 @@ export class Menu {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   categoria: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'varchar', length: 255 })
   nombre: string;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   costo_neto: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   iva: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   costo_bruto: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   costo_trans: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   utilidad: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   valor_venta: number;
 
-  // Fix para el error TS2339: Agrega la relación ManyToOne aquí
-  @Column({ name: 'id_negocio', nullable: false, default: 1 })
+  @Column({ type: 'int', name: 'id_negocio', nullable: false, default: 1 })
   id_negocio: number;
 
   @ManyToOne(() => Negocio, (negocio) => negocio.platillos)
   @JoinColumn({ name: 'id_negocio' })
-  negocio: Negocio; // Esto define la propiedad 'negocio' que faltaba
+  negocio: Negocio;
 
   @OneToMany(() => Ingrediente, (ingrediente) => ingrediente.platillo)
   ingredientes: Ingrediente[];
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
 
 @Entity('ingredientes')
@@ -69,16 +82,28 @@ export class Ingrediente {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'numeric' })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   cantidad: number;
+
+  @Column({ type: 'int', name: 'platillo_id' })
+  platillo_id: number; // FK explícita
 
   @ManyToOne(() => Menu, (menu) => menu.ingredientes)
   @JoinColumn({ name: 'platillo_id' })
   platillo: Menu;
 
+  @Column({ type: 'int', name: 'id_insumo' })
+  id_insumo: number; // FK explícita
+
   @ManyToOne(() => Insumo, (insumo) => insumo.ingredientes)
   @JoinColumn({ name: 'id_insumo' })
   insumo: Insumo;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
 
 @Entity('inventario')
@@ -86,13 +111,22 @@ export class Inventario {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'numeric' })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   cantidad: number;
 
-  @Column()
+  @Column({ type: 'int' })
   id_almacen: number;
+
+  @Column({ type: 'int', name: 'id_insumo' })
+  id_insumo: number; // FK explícita
 
   @ManyToOne(() => Insumo, (insumo) => insumo.inventario)
   @JoinColumn({ name: 'id_insumo' })
   insumo: Insumo;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
