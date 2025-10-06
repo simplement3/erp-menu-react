@@ -1,16 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PedidosService } from './pedidos.service';
 import { PedidosController } from './pedidos.controller';
-import { PedidosService } from './pedidos.service'; // Importa el service
-import { Pedido } from './entities/pedido.entity'; // Importa la entity (crea si no existe)
-import { WebsocketsModule } from '../websockets/websockets.module'; // Importa el módulo WebSockets
+import { Pedido } from './entities/pedido.entity';
+import { OrdersGateway } from '../websockets/orders.gateway'; // Agrega este import para fixear el siguiente error
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Pedido]), // Registra la entity para repos
-    WebsocketsModule, // Agrega aquí para inyectar en el service
-  ],
+  imports: [TypeOrmModule.forFeature([Pedido])], // Si ya tenés imports, agrega esto al array existente (ej: imports: [..., TypeOrmModule.forFeature([Pedido])])
+  providers: [PedidosService, OrdersGateway], // Agrega OrdersGateway aquí
   controllers: [PedidosController],
-  providers: [PedidosService], // Agrega aquí el service
 })
 export class PedidosModule {}

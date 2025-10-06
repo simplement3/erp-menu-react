@@ -1,18 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common'; // Agrega UnauthorizedException
 import { JwtService } from '@nestjs/jwt';
-// Asume UserService para validar users
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private jwtService: JwtService /*, private userService: UserService */,
-  ) {}
+  constructor(private jwtService: JwtService) {}
 
   login(email: string, password: string) {
-    const user = { id: 1, email, rol: 'admin' }; // Mock
-    if (password !== 'test') throw new Error('Invalid password');
+    if (!email) {
+      throw new UnauthorizedException('Email es requerido'); // Nuevo: Valida email
+    }
+    if (password !== 'test') {
+      throw new UnauthorizedException('Password inválido'); // Fix: Usa Unauthorized para 401
+    }
 
-    // const payload = { id: user.id, email, rol: user.rol }; // Usa payload
+    const user = { id: 1, email, rol: 'admin' }; // Mock
     return {
       token: this.jwtService.sign({ id: user.id, email, rol: user.rol }),
     };
