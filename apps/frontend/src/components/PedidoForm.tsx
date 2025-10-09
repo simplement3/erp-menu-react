@@ -35,14 +35,13 @@ export const PedidoForm = ({
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       const res = await fetch('/api/pedidos', {
-        // <-- Usa ruta relativa
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_negocio,
           id_almacen,
           ...data,
-          productos: items,
+          productos: items, // Usa 'productos' para coincidir con CreatePedidoDto
           total,
         }),
       });
@@ -71,7 +70,10 @@ export const PedidoForm = ({
     >
       <h2 className="text-2xl font-bold">Datos del Pedido</h2>
       <input
-        {...register('cliente', { required: 'Cliente requerido' })}
+        {...register('cliente', {
+          required: 'Cliente requerido',
+          maxLength: { value: 100, message: 'Máximo 100 caracteres' },
+        })}
         placeholder="Nombre"
         className="w-full p-2 border rounded"
       />
@@ -82,9 +84,9 @@ export const PedidoForm = ({
       <input
         {...register('telefono', {
           required: 'Teléfono requerido',
-          pattern: { value: /^\d{9,}$/, message: '9 dígitos' },
+          pattern: { value: /^\+569\d{8}$/, message: 'Formato +56912345678' },
         })}
-        placeholder="Teléfono"
+        placeholder="Teléfono (+56912345678)"
         className="w-full p-2 border rounded"
       />
       {errors.telefono && (
@@ -121,9 +123,34 @@ export const PedidoForm = ({
       <Button
         type="submit"
         disabled={mutation.isPending}
-        className="w-full bg-blue-500 hover:bg-blue-600"
+        className="w-full bg-blue-500 hover:bg-blue-600 relative"
       >
-        {mutation.isPending ? 'Procesando...' : 'Crear Pedido'}
+        {mutation.isPending ? (
+          <span className="flex items-center justify-center">
+            <svg
+              className="animate-spin h-5 w-5 mr-2 text-white"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8 8 8 0 01-8-8z"
+              />
+            </svg>
+            Procesando...
+          </span>
+        ) : (
+          'Crear Pedido'
+        )}
       </Button>
     </form>
   );
