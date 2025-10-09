@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test WebSocket Notificaciones</title>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.js"></script>
+</head>
+<body>
+  <h1>Test Notificaciones WebSocket</h1>
+  <p>Únete a un room (ej: "1" para id_negocio=1) y espera notificaciones de nuevos pedidos.</p>
+  
+  <label for="room">Room (id_negocio):</label><br>
+  <input type="text" id="room" value="1" style="width: 200px;"><br><br>
+  
+  <button onclick="connectAndJoin()">Conectar y Unir a Room</button>
+  
+  <h2>Notificaciones Recibidas:</h2>
+  <ul id="notifications"></ul>
+  
+  <p>Abre la consola (F12 > Console) para más detalles.</p>
+  
+  <script>
+    let socket;
+    
+    function connectAndJoin() {
+      const roomInput = document.getElementById('room').value;
+      const id_negocio = parseInt(roomInput); // Convierte a number
+      if (isNaN(id_negocio)) {
+        console.error('Ingresa un número válido para id_negocio!');
+        return;
+      }
+      
+      socket = io('http://localhost:3000');
+      
+      socket.on('connect', () => {
+        console.log('Conectado a WebSocket! ID:', socket.id);
+        socket.emit('join', { id_negocio }); // Emit objeto: { id_negocio: 1 }
+        console.log(`Intentando unir a room: ${id_negocio}`);
+      });
+      
+      socket.on('joinedRoom', (msg) => { // Escucha confirmación
+        console.log('Room joined:', msg);
+      });
+      
+      socket.on('nuevo-pedido', (order) => { // Listener legacy
+        console.log('Nuevo pedido recibido:', order);
+        const li = document.createElement('li');
+        li.textContent = `Nuevo pedido ID: ${order.id}, Cliente: ${order.cliente}, Total: $${order.total}, Productos: ${JSON.stringify(order.productos || order.items)}`;
+        document.getElementById('notifications').appendChild(li);
+      });
+      
+      socket.on('error', (msg) => {
+        console.error('Error WS:', msg);
+      });
+      
+      socket.on('disconnect', () => console.log('Desconectado'));
+    }
+  </script>
+</body>
+</html>

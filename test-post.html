@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test POST Pedido</title>
+</head>
+<body>
+  <h1>Test Crear Pedido via POST</h1>
+  <p>Pega tu token JWT abajo (obtenlo de Postman o curl primero).</p>
+  
+  <label for="token">Token JWT:</label><br>
+  <input type="text" id="token" style="width: 500px;" placeholder="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJ0ZXN0QGVycC5jb20iLCJyb2wiOiJhZG1pbiIsImlhdCI6MTc1OTY4MzU2OSwiZXhwIjoxNzU5Njg3MTY5fQ.fTgUTEVQGUfWedkq9ojzzqihQEvl5t6ywJKzVW411bs"><br><br>
+  
+  <label for="body">Body JSON (edita si querés):</label><br>
+  <textarea id="body" rows="10" cols="50">
+{
+  "id_negocio": 1,
+  "items": [
+    {"id_menu": 1, "cantidad": 2},
+    {"id_menu": 3, "cantidad": 1}
+  ],
+  "total": 9707.00
+}
+  </textarea><br><br>
+  
+  <button onclick="sendPost()">Enviar POST</button>
+  
+  <p>Abre la consola (F12 > Console) para ver el response o errors.</p>
+  
+  <script>
+    function sendPost() {
+      const token = document.getElementById('token').value;
+      const body = document.getElementById('body').value;
+      
+      if (!token) {
+        console.error('Pega un token válido!');
+        return;
+      }
+      
+      fetch('http://localhost:3000/api/pedidos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token  // Ej: Bearer [token]
+        },
+        body: body
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Éxito! Pedido creado:', data);
+      })
+      .catch(error => {
+        console.error('Error en POST:', error);
+      });
+    }
+  </script>
+</body>
+</html>

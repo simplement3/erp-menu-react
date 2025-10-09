@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { OrdersGateway } from './orders.gateway'; // Corrige a path relativo local (asumiendo que orders.gateway.ts está en la misma carpeta websockets/)
+import { OrdersGateway } from './orders.gateway';
 
 @Module({
   providers: [OrdersGateway],
-  exports: [OrdersGateway], // Ya está bien
+  exports: [OrdersGateway],
 })
 export class WebsocketsModule {}

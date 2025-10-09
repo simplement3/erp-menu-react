@@ -1,15 +1,22 @@
 import {
   IsNumber,
+  IsString,
+  IsOptional,
   IsArray,
-  IsNotEmpty,
-  ArrayMinSize,
   ValidateNested,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class Item {
+class ProductoDto {
   @IsNumber()
-  id_menu: number;
+  id_producto: number;
+
+  @IsString()
+  nombre: string;
+
+  @IsNumber()
+  precio: number;
 
   @IsNumber()
   cantidad: number;
@@ -17,16 +24,29 @@ class Item {
 
 export class CreatePedidoDto {
   @IsNumber()
-  @IsNotEmpty()
   id_negocio: number;
 
+  @IsNumber()
+  id_almacen: number;
+
+  @IsString()
+  cliente: string;
+
+  @IsString()
+  telefono: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsEnum(['local', 'delivery'])
+  tipo_pedido: 'local' | 'delivery';
+
   @IsArray()
-  @ArrayMinSize(1) // Al menos un item
   @ValidateNested({ each: true })
-  @Type(() => Item)
-  items: Item[];
+  @Type(() => ProductoDto)
+  productos: ProductoDto[]; // <-- Cambia de 'items' a 'productos'
 
   @IsNumber()
-  @IsNotEmpty()
   total: number;
 }

@@ -1,45 +1,48 @@
 import {
   WebSocketGateway,
-  SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
   WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Socket, Server } from 'socket.io';
-import { Logger } from '@nestjs/common';
-import { Pedido } from '../pedidos/entities/pedido.entity'; // Importa entity tipada
+import { Server, Socket } from 'socket.io';
+import { Pedido } from '../pedidos/entities/pedido.entity';
 
-@WebSocketGateway({ cors: true })
-export class OrdersGateway {
-  @WebSocketServer() server: Server;
-  private logger = new Logger('OrdersGateway');
+@WebSocketGateway({
+  cors: {
+    origin: 'http://localhost:5173',
+    credentials: true, // <-- Habilita credenciales
+  },
+})
+export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
 
-  @SubscribeMessage('join')
-  handleRoomJoin(
-    @MessageBody() data: { id_negocio: number },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const { id_negocio } = data;
-    if (!id_negocio || isNaN(id_negocio)) {
-      this.logger.warn(`Join inválido de ${client.id}: id_negocio requerido`);
-      void client.emit('error', 'id_negocio debe ser número válido'); // <-- Fix: void para Promise
-      return;
-    }
-    const room = id_negocio.toString();
-    client.join(room);
-    this.logger.log(`Cliente ${client.id} joined room ${room}`);
-    void client.emit('joinedRoom', `Unido a room ${room}`); // <-- Fix: void para Promise
+  handleConnection(client: Socket) {
+    console.log('Client connected:', client.id);
   }
 
-  notifyNewOrder(idNegocio: number, order: Pedido) {
-    const room = idNegocio.toString();
-    const payload = {
-      ...order, // Ahora safe: Pedido tipado con productos: ProductoPedido[]
-      items: order.productos, // Mapping opcional para compat
-    };
-    void this.server.to(room).emit('nuevo-pedido', payload); // <-- Fix: void para server.emit Promise
-    this.logger.log(
-      `Notif 'nuevo-pedido' enviada a room ${room}: Pedido #${order.id}`,
-    );
+  handleDisconnect(client: Socket) {
+    console.log('Client disconnected:', client.id);
+  }
+
+  @SubscribeMessage('join')
+  handleJoin(client: Socket, { id_negocio }: { id_negocio: number }) {
+    const room = `negocio_${id_negocio}`;
+    client.join(room);
+    client.emit('joinedRoom', `Unido a room ${id_negocio}`);
+  }
+
+  notifyNewOrder(id_negocio: number, order: Pedido) {
+    this.server.to(`negocio_${id_negocio}`).emit('nuevo-pedido', {
+      id: order.id,
+      cliente: order.cliente,
+      telefono: order.telefono,
+      direccion: order.direccion,
+      tipo_pedido: order.tipo_pedido,
+      productos: order.productos,
+      total: order.total,
+      fecha: order.fecha,
+    });
   }
 }
