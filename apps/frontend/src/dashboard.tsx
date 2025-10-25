@@ -23,7 +23,15 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
   const [pedidos, setPedidos] = useState<PedidoNotif[]>([]);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:3000', { withCredentials: true });
+    // configuración con reconexión progresiva (máx. 5 intentos)
+    socketRef.current = io('http://localhost:3000', {
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      transports: ['websocket'],
+    });
 
     socketRef.current.on('connect', () => {
       console.log('Socket conectado:', socketRef.current?.id);
@@ -40,12 +48,21 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
       toast.success(`Nuevo pedido #${order.id}`);
     });
 
+    socketRef.current.on('reconnect_attempt', (attempt) => {
+      console.log(`Intentando reconexión (${attempt})...`);
+    });
+
+    socketRef.current.on('reconnect_failed', () => {
+      console.warn('Reconexión fallida tras múltiples intentos');
+      toast.error('Conexión con el servidor perdida');
+    });
+
     socketRef.current.on('error', (msg: string) => {
       console.error('Error WS:', msg);
     });
 
-    socketRef.current.on('disconnect', () => {
-      console.log('Socket desconectado');
+    socketRef.current.on('disconnect', (reason) => {
+      console.log('Socket desconectado:', reason);
     });
 
     return () => {

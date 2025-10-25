@@ -9,32 +9,43 @@ import { Server, Socket } from 'socket.io';
 import { Pedido } from '../pedidos/entities/pedido.entity';
 
 @WebSocketGateway({
-  cors: {
-    origin: 'http://localhost:5173',
-    credentials: true, // <-- Habilita credenciales
-  },
+  cors: { origin: 'http://localhost:5173', credentials: true },
+  transports: ['websocket'], // Fuerza transporte estable
+  path: '/socket.io',
 })
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
+  private activeClients = new Map<string, number>(); // client.id → id_negocio
+
   handleConnection(client: Socket) {
-    console.log('Client connected:', client.id);
+    console.log(`🟢 Cliente conectado: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Client disconnected:', client.id);
+    console.log(`🔴 Cliente desconectado: ${client.id}`);
+    this.activeClients.delete(client.id);
   }
 
   @SubscribeMessage('join')
   handleJoin(client: Socket, { id_negocio }: { id_negocio: number }) {
+    if (!id_negocio) {
+      client.emit('error', 'id_negocio es requerido para unirse');
+      return;
+    }
+
     const room = `negocio_${id_negocio}`;
     void client.join(room);
-    client.emit('joinedRoom', `Unido a room ${id_negocio}`);
+    this.activeClients.set(client.id, id_negocio);
+
+    console.log(`📡 Cliente ${client.id} unido a sala ${room}`);
+    client.emit('joinedRoom', `Unido a sala ${id_negocio}`);
   }
 
   notifyNewOrder(id_negocio: number, order: Pedido) {
-    this.server.to(`negocio_${id_negocio}`).emit('nuevo-pedido', {
+    const room = `negocio_${id_negocio}`;
+    this.server.to(room).emit('nuevo-pedido', {
       id: order.id,
       cliente: order.cliente,
       telefono: order.telefono,
