@@ -29,7 +29,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join')
   handleJoin(client: Socket, { id_negocio }: { id_negocio: number }) {
     const room = `negocio_${id_negocio}`;
-    client.join(room);
+    void client.join(room);
     client.emit('joinedRoom', `Unido a room ${id_negocio}`);
   }
 
