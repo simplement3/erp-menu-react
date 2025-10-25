@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { WebsocketsModule } from './websockets/websockets.module';
 import { NegociosModule } from './negocios/negocios.module'; // Agrega este import
+import { MovimientosStockModule } from './movimientos-stock/movimientos-stock.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { NegociosModule } from './negocios/negocios.module'; // Agrega este impo
     MenuModule,
     WebsocketsModule,
     NegociosModule, // Agrega esto al array de imports
+    MovimientosStockModule,
   ],
   controllers: [AppController],
   providers: [AppService],

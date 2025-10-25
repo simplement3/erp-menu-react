@@ -12,11 +12,11 @@ interface FormData {
 }
 
 export const PedidoForm = ({
-  id_negocio = 1,
-  id_almacen = 1,
+  id_negocio,
+  id_almacen,
 }: {
-  id_negocio?: number;
-  id_almacen?: number;
+  id_negocio: number;
+  id_almacen: number;
 }) => {
   const { items, clear } = useCartStore();
   const queryClient = useQueryClient();
@@ -27,9 +27,8 @@ export const PedidoForm = ({
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<FormData>({
-    defaultValues: { tipo_pedido: 'local' },
-  });
+  } = useForm<FormData>({ defaultValues: { tipo_pedido: 'local' } });
+
   const tipoPedido = watch('tipo_pedido');
 
   const mutation = useMutation({
@@ -41,7 +40,7 @@ export const PedidoForm = ({
           id_negocio,
           id_almacen,
           ...data,
-          productos: items, // Usa 'productos' para coincidir con CreatePedidoDto
+          productos: items,
           total,
         }),
       });
@@ -60,7 +59,6 @@ export const PedidoForm = ({
   });
 
   const onSubmit = (data: FormData) => mutation.mutate(data);
-
   if (items.length === 0) return null;
 
   return (
@@ -69,6 +67,7 @@ export const PedidoForm = ({
       className="space-y-4 p-4 bg-white rounded shadow mt-8"
     >
       <h2 className="text-2xl font-bold">Datos del Pedido</h2>
+
       <input
         {...register('cliente', {
           required: 'Cliente requerido',
@@ -102,14 +101,16 @@ export const PedidoForm = ({
       </select>
 
       {tipoPedido === 'delivery' && (
-        <input
-          {...register('direccion', { required: 'Dirección requerida' })}
-          placeholder="Dirección"
-          className="w-full p-2 border rounded"
-        />
-      )}
-      {tipoPedido === 'delivery' && errors.direccion && (
-        <p className="text-red-500">{errors.direccion.message}</p>
+        <>
+          <input
+            {...register('direccion', { required: 'Dirección requerida' })}
+            placeholder="Dirección"
+            className="w-full p-2 border rounded"
+          />
+          {errors.direccion && (
+            <p className="text-red-500">{errors.direccion.message}</p>
+          )}
+        </>
       )}
 
       <p className="text-lg font-bold">
