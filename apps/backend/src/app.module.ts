@@ -7,23 +7,18 @@ import { PedidosModule } from './pedidos/pedidos.module';
 import { AuthModule } from './auth/auth.module';
 import { MenuModule } from './menu/menu.module';
 import { WebsocketsModule } from './websockets/websockets.module';
-import { NegociosModule } from './negocios/negocios.module'; // Agrega este import
+import { NegociosModule } from './negocios/negocios.module';
 import { MovimientosStockModule } from './movimientos-stock/movimientos-stock.module';
 import { PlatilloIngredientesModule } from './platillos/platillo-ingredientes.module';
-import { InventarioModule } from './inventario/inventario.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), // Quita envFilePath
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
-        console.log('DB_HOST:', configService.get('DB_HOST'));
-        console.log(
-          'DB_PASSWORD:',
-          configService.get('DB_PASSWORD'),
-          typeof configService.get('DB_PASSWORD'),
-        );
         const password = configService.get<string>('DB_PASSWORD');
         if (!password) throw new Error('DB_PASSWORD is required');
         return {
@@ -33,10 +28,10 @@ import { InventarioModule } from './inventario/inventario.module';
           username: configService.get<string>('DB_USER') || 'postgres',
           password,
           database: configService.get<string>('DB_NAME') || 'erp_tierp_db',
-          entities: [__dirname + '/**/*.entity{.ts,.js}'], // Agrega esto: Auto-carga todas las entities en src (incluyendo Negocio)
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
           autoLoadEntities: true,
-          synchronize: false, // Desactiva sync para no alterar la DB
-          logging: true, // Activa logs para debuggear queries
+          synchronize: false,
+          logging: true,
         };
       },
       inject: [ConfigService],
@@ -45,10 +40,11 @@ import { InventarioModule } from './inventario/inventario.module';
     AuthModule,
     MenuModule,
     WebsocketsModule,
-    NegociosModule, // Agrega esto al array de imports
+    NegociosModule,
     MovimientosStockModule,
     PlatilloIngredientesModule,
-    InventarioModule,
+    NotificationsModule,
+    PagosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

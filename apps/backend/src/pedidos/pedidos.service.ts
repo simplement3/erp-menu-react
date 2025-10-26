@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,11 +12,10 @@ import { PlatilloIngrediente } from '../platillos/entities/platillo-ingrediente.
 import { Ingrediente } from '../ingredientes/entities/ingrediente.entity';
 import { Inventario } from '../inventario/entities/inventario.entity';
 import { MovimientoStock } from '../inventario/entities/movimiento-stock.entity';
+import { MailService } from '../notifications/mail.service';
 
 @Injectable()
 export class PedidosService {
-  private readonly logger = new Logger(PedidosService.name);
-
   constructor(
     @InjectRepository(Pedido)
     private readonly pedidoRepository: Repository<Pedido>,
@@ -35,14 +33,16 @@ export class PedidosService {
     private readonly movStockRepository: Repository<MovimientoStock>,
 
     private readonly ordersGateway: OrdersGateway,
+    private readonly mailService: MailService,
   ) {}
 
   /**
-   * Crea pedido y descuenta ingredientes por insumo.
-   * - Transacción completa.
-   * - Lock pesimista en inventario.
-   * - Registro en movimientos_stock.
-   * - Rollback seguro ante error.
+   * Crea pedido y descuenta ingredientes por insumo de forma transaccional.
+   * - Valida stock.
+   * - Descuenta inventario.
+   * - Registra movimientos.
+   * - Notifica por WebSocket.
+   * - Envía correo solo si es delivery.
    */
   async createOrder(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     const queryRunner =
@@ -51,74 +51,82 @@ export class PedidosService {
     await queryRunner.startTransaction();
 
     try {
-      if (!createPedidoDto?.productos?.length)
-        throw new BadRequestException('productos no puede estar vacío');
-      if (!createPedidoDto.id_almacen)
+      if (!createPedidoDto?.productos?.length) {
+        throw new BadRequestException(
+          'productos es requerido y no puede estar vacío',
+        );
+      }
+      if (!createPedidoDto.id_almacen) {
         throw new BadRequestException('id_almacen es requerido');
+      }
 
       const idAlmacen = createPedidoDto.id_almacen;
 
-      this.logger.log(
-        `Creando pedido para negocio=${createPedidoDto.id_negocio}, almacen=${idAlmacen}`,
-      );
-
+      // 1) Crear pedido
       const newOrder = this.pedidoRepository.create(createPedidoDto);
       const savedOrder = await queryRunner.manager.save(newOrder);
 
-      // Procesar productos del pedido
-      for (const producto of createPedidoDto.productos) {
+      // 2) Descontar ingredientes
+      for (const prod of createPedidoDto.productos) {
         const receta = await queryRunner.manager.find(PlatilloIngrediente, {
-          where: { platillo: { id: producto.id_producto } },
+          where: { platillo: { id: prod.id_producto } },
           relations: ['ingrediente'],
         });
 
-        if (!receta.length) {
-          this.logger.warn(
-            `Platillo ${producto.id_producto} sin receta definida`,
-          );
-          continue;
-        }
+        if (!receta.length) continue;
 
-        // Validar stock
-        for (const item of receta) {
-          const ing = item.ingrediente;
-          const requerido = this.mulNumeric(item.cantidad, producto.cantidad);
+        // Validación de stock
+        for (const r of receta) {
+          const ing = r.ingrediente;
+          if (!ing?.idInsumo) {
+            throw new BadRequestException(
+              `Ingrediente ${ing?.nombre ?? r.ingrediente?.id} sin id_insumo asociado`,
+            );
+          }
+
+          const requerido = this.mulNumeric(r.cantidad, prod.cantidad);
 
           const inv = await queryRunner.manager.findOne(Inventario, {
             where: { idAlmacen, idInsumo: ing.idInsumo },
             lock: { mode: 'pessimistic_write' },
           });
 
-          if (!inv)
+          if (!inv) {
             throw new BadRequestException(
-              `Inventario no encontrado para insumo ${ing.idInsumo} en almacén ${idAlmacen}`,
+              `No existe inventario para insumo ${ing.idInsumo} en almacén ${idAlmacen}`,
             );
+          }
 
-          if (this.ltNumeric(inv.cantidad, requerido))
+          if (this.ltNumeric(inv.cantidad, requerido)) {
             throw new BadRequestException(
-              `Stock insuficiente de insumo ${ing.nombre} (${ing.idInsumo}): requerido ${requerido}, disponible ${inv.cantidad}`,
+              `Stock insuficiente del insumo ${ing.idInsumo}. Requerido: ${requerido}, disponible: ${inv.cantidad}`,
             );
+          }
         }
 
-        // Descontar y registrar movimiento
-        for (const item of receta) {
-          const ing = item.ingrediente;
-          const requerido = this.mulNumeric(item.cantidad, producto.cantidad);
+        // Descuento real + movimiento
+        for (const r of receta) {
+          const ing = r.ingrediente;
+          const requerido = this.mulNumeric(r.cantidad, prod.cantidad);
 
           const inv = await queryRunner.manager.findOne(Inventario, {
             where: { idAlmacen, idInsumo: ing.idInsumo },
             lock: { mode: 'pessimistic_write' },
           });
 
-          inv.cantidad = this.subNumeric(inv.cantidad, requerido);
+          if (!inv) continue;
+
+          const nuevoSaldo = this.subNumeric(inv.cantidad, requerido);
+          inv.cantidad = nuevoSaldo;
+
           await queryRunner.manager.save(Inventario, inv);
 
           const mov = this.movStockRepository.create({
             idAlmacen,
             idInsumo: ing.idInsumo,
-            tipo: 'SALIDA',
+            tipo: 'salida',
             cantidad: requerido,
-            referencia: `Pedido #${savedOrder.id} - platillo ${producto.id_producto}`,
+            referencia: `Pedido #${savedOrder.id} - platillo ${prod.id_producto}`,
             fecha: new Date(),
           });
           await queryRunner.manager.save(MovimientoStock, mov);
@@ -127,19 +135,38 @@ export class PedidosService {
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(
-        `Pedido ${createPedidoDto.id_negocio}-${savedOrder.id} creado correctamente`,
-      );
-
-      if (typeof savedOrder.id_negocio === 'number')
+      // WebSocket (post-commit)
+      if (typeof savedOrder.id_negocio === 'number') {
         this.ordersGateway.notifyNewOrder(savedOrder.id_negocio, savedOrder);
+      }
+
+      // ...
+      // Enviar correo solo si es delivery
+      if (savedOrder.tipo_pedido === 'delivery') {
+        try {
+          await this.mailService.sendDeliveryConfirmation(
+            `${savedOrder.telefono}@sms-gateway.mock`,
+            {
+              id: savedOrder.id,
+              cliente: savedOrder.cliente,
+              telefono: savedOrder.telefono,
+              direccion: savedOrder.direccion,
+              tipo_pedido: savedOrder.tipo_pedido,
+              productos: savedOrder.productos,
+              total: savedOrder.total,
+            },
+          );
+        } catch {
+          console.error('Error enviando correo');
+        }
+      }
+      // ...
 
       return savedOrder;
     } catch (error: unknown) {
       await queryRunner.rollbackTransaction();
       const message =
         error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(`Error creando pedido: ${message}`);
       throw new InternalServerErrorException(message);
     } finally {
       await queryRunner.release();
@@ -147,7 +174,7 @@ export class PedidosService {
   }
 
   /**
-   * Lista pedidos de un negocio con filtros de fecha.
+   * Lista pedidos de un negocio con filtros opcionales por fecha.
    */
   async listOrders(
     idNegocio: number,
@@ -165,7 +192,7 @@ export class PedidosService {
     return query.getMany();
   }
 
-  // ---- utilitarios numéricos ----
+  // ---------- utilitarios NUMERIC ----------
   private mulNumeric(a: string | number, b: string | number): string {
     return (Number(a) * Number(b)).toString();
   }
