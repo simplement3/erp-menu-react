@@ -12,6 +12,7 @@ import { MovimientosStockModule } from './movimientos-stock/movimientos-stock.mo
 import { PlatilloIngredientesModule } from './platillos/platillo-ingredientes.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PagosModule } from './pagos/pagos.module';
+import { ReportesModule } from './reportes/reportes.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PagosModule } from './pagos/pagos.module';
     MovimientosStockModule,
     PlatilloIngredientesModule,
     NotificationsModule,
+    ReportesModule,
     PagosModule,
   ],
   controllers: [AppController],

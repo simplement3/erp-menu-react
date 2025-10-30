@@ -10,7 +10,7 @@ import { Pedido } from '../pedidos/entities/pedido.entity';
 
 @WebSocketGateway({
   cors: { origin: 'http://localhost:5173', credentials: true },
-  transports: ['websocket'], // Fuerza transporte estable
+  transports: ['websocket'],
   path: '/socket.io',
 })
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -54,6 +54,18 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       productos: order.productos,
       total: order.total,
       fecha: order.fecha,
+      estado: order.estado,
+    });
+  }
+
+  // NUEVO: emisión cuando cambia el estado
+  notifyPedidoActualizado(id_negocio: number, order: Pedido) {
+    const room = `negocio_${id_negocio}`;
+    this.server.to(room).emit('pedido-actualizado', {
+      id: order.id,
+      estado: order.estado,
+      fecha: order.fecha,
+      total: order.total,
     });
   }
 }

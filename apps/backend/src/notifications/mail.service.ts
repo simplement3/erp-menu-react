@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import nodemailer, { Transporter, SentMessageInfo } from 'nodemailer';
+import { createTransport, Transporter, SentMessageInfo } from 'nodemailer';
 
 export interface ProductoPedido {
   id_producto: number;
@@ -28,7 +28,7 @@ export class MailService {
   private readonly transporter: Transporter<SentMessageInfo>;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
+    this.transporter = createTransport({
       host: process.env.SMTP_HOST ?? 'smtp.ethereal.email',
       port: Number(process.env.SMTP_PORT ?? 587),
       secure: false,

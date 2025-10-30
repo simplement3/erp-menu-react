@@ -2,8 +2,10 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
+  Query,
   BadRequestException,
   UsePipes,
   ValidationPipe,
@@ -20,11 +22,21 @@ export class PedidosController {
   constructor(private readonly pedidosService: PedidosService) {}
 
   @Get('negocio/:id_negocio')
-  async findAll(@Param('id_negocio') id_negocio: number) {
+  async findAll(
+    @Param('id_negocio') id_negocio: number,
+    @Query('fechaInicio') fechaInicio?: string,
+    @Query('fechaFin') fechaFin?: string,
+    @Query('estado') estado?: string,
+  ) {
     if (!id_negocio) {
       throw new BadRequestException('id_negocio es requerido');
     }
-    return this.pedidosService.listOrders(id_negocio);
+    return this.pedidosService.listOrders(
+      Number(id_negocio),
+      fechaInicio,
+      fechaFin,
+      estado,
+    );
   }
 
   @Post()
@@ -33,5 +45,20 @@ export class PedidosController {
   async create(@Body() createPedidoDto: CreatePedidoDto) {
     const newOrder = await this.pedidosService.createOrder(createPedidoDto);
     return { message: 'Pedido creado exitosamente', order: newOrder };
+  }
+
+  @Patch(':id/estado')
+  async updateEstado(
+    @Param('id') id: number,
+    @Body() body: { estado: string },
+  ) {
+    if (!body?.estado) {
+      throw new BadRequestException('estado es requerido');
+    }
+    const updated = await this.pedidosService.updateEstado(
+      Number(id),
+      body.estado,
+    );
+    return { message: 'Estado actualizado', order: updated };
   }
 }

@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
+import { ReportesController } from './reportes.controller';
+import { PedidosService } from '../pedidos/pedidos.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Pedido } from './entities/pedido.entity';
-import { PedidosService } from './pedidos.service';
-import { PedidosController } from './pedidos.controller';
-import { OrdersGateway } from '../websockets/orders.gateway';
+import { Pedido } from '../pedidos/entities/pedido.entity';
 import { PlatilloIngrediente } from '../platillos/entities/platillo-ingrediente.entity';
 import { Ingrediente } from '../ingredientes/entities/ingrediente.entity';
 import { Inventario } from '../inventario/entities/inventario.entity';
 import { MovimientoStock } from '../inventario/entities/movimiento-stock.entity';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { OrdersGateway } from '../websockets/orders.gateway';
+import { MailService } from '../notifications/mail.service';
 
 @Module({
   imports: [
@@ -19,10 +19,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Inventario,
       MovimientoStock,
     ]),
-    NotificationsModule, // Importa módulo que exporta MailService
   ],
-  controllers: [PedidosController],
-  providers: [PedidosService, OrdersGateway],
-  exports: [PedidosService],
+  controllers: [ReportesController],
+  providers: [PedidosService, OrdersGateway, MailService],
 })
-export class PedidosModule {}
+export class ReportesModule {}

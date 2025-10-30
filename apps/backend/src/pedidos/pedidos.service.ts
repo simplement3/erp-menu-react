@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,15 @@ import { Ingrediente } from '../ingredientes/entities/ingrediente.entity';
 import { Inventario } from '../inventario/entities/inventario.entity';
 import { MovimientoStock } from '../inventario/entities/movimiento-stock.entity';
 import { MailService } from '../notifications/mail.service';
+
+const VALID_ESTADOS = [
+  'pendiente',
+  'en_preparacion',
+  'listo',
+  'entregado',
+  'cancelado',
+] as const;
+type EstadoPedido = (typeof VALID_ESTADOS)[number];
 
 @Injectable()
 export class PedidosService {
@@ -36,14 +46,6 @@ export class PedidosService {
     private readonly mailService: MailService,
   ) {}
 
-  /**
-   * Crea pedido y descuenta ingredientes por insumo de forma transaccional.
-   * - Valida stock.
-   * - Descuenta inventario.
-   * - Registra movimientos.
-   * - Notifica por WebSocket.
-   * - Envía correo solo si es delivery.
-   */
   async createOrder(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     const queryRunner =
       this.pedidoRepository.manager.connection.createQueryRunner();
@@ -62,7 +64,7 @@ export class PedidosService {
 
       const idAlmacen = createPedidoDto.id_almacen;
 
-      // 1) Crear pedido
+      // 1) Crear pedido (queda por defecto estado='pendiente')
       const newOrder = this.pedidoRepository.create(createPedidoDto);
       const savedOrder = await queryRunner.manager.save(newOrder);
 
@@ -140,8 +142,7 @@ export class PedidosService {
         this.ordersGateway.notifyNewOrder(savedOrder.id_negocio, savedOrder);
       }
 
-      // ...
-      // Enviar correo solo si es delivery
+      // Email solo delivery
       if (savedOrder.tipo_pedido === 'delivery') {
         try {
           await this.mailService.sendDeliveryConfirmation(
@@ -151,16 +152,20 @@ export class PedidosService {
               cliente: savedOrder.cliente,
               telefono: savedOrder.telefono,
               direccion: savedOrder.direccion,
-              tipo_pedido: savedOrder.tipo_pedido,
-              productos: savedOrder.productos,
-              total: savedOrder.total,
+              tipo_pedido: savedOrder.tipo_pedido as 'local' | 'delivery',
+              productos: savedOrder.productos as {
+                id_producto: number;
+                nombre: string;
+                cantidad: number;
+                precio: number;
+              }[],
+              total: Number(savedOrder.total),
             },
           );
         } catch {
-          console.error('Error enviando correo');
+          // silencio controlado
         }
       }
-      // ...
 
       return savedOrder;
     } catch (error: unknown) {
@@ -173,13 +178,32 @@ export class PedidosService {
     }
   }
 
-  /**
-   * Lista pedidos de un negocio con filtros opcionales por fecha.
-   */
+  async updateEstado(id: number, estado: string): Promise<Pedido> {
+    const estadoNorm = String(estado).toLowerCase() as EstadoPedido;
+    if (!VALID_ESTADOS.includes(estadoNorm)) {
+      throw new BadRequestException(
+        `estado inválido. válidos: ${VALID_ESTADOS.join(', ')}`,
+      );
+    }
+
+    const pedido = await this.pedidoRepository.findOne({ where: { id } });
+    if (!pedido) throw new NotFoundException('Pedido no encontrado');
+
+    pedido.estado = estadoNorm;
+    const saved = await this.pedidoRepository.save(pedido);
+
+    if (typeof saved.id_negocio === 'number') {
+      this.ordersGateway.notifyPedidoActualizado(saved.id_negocio, saved);
+    }
+
+    return saved;
+  }
+
   async listOrders(
     idNegocio: number,
     fechaInicio?: string,
     fechaFin?: string,
+    estado?: string,
   ): Promise<Pedido[]> {
     const query = this.pedidoRepository
       .createQueryBuilder('pedido')
@@ -188,6 +212,11 @@ export class PedidosService {
     if (fechaInicio)
       query.andWhere('pedido.fecha >= :fechaInicio', { fechaInicio });
     if (fechaFin) query.andWhere('pedido.fecha <= :fechaFin', { fechaFin });
+
+    if (estado) {
+      const e = String(estado).toLowerCase();
+      query.andWhere('LOWER(pedido.estado) = :estado', { estado: e });
+    }
 
     return query.getMany();
   }
