@@ -21,6 +21,7 @@ import { Public } from '../auth/public.decorator';
 export class PedidosController {
   constructor(private readonly pedidosService: PedidosService) {}
 
+  @Public()
   @Get('negocio/:id_negocio')
   async findAll(
     @Param('id_negocio') id_negocio: number,
@@ -48,6 +49,7 @@ export class PedidosController {
   }
 
   @Patch(':id/estado')
+  @Public()
   async updateEstado(
     @Param('id') id: number,
     @Body() body: { estado: string },

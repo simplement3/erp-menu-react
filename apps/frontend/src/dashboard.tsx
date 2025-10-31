@@ -17,6 +17,7 @@ interface PedidoNotif {
   }>;
   total: number;
   fecha: string;
+  estado?: string;
 }
 
 export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
@@ -24,26 +25,37 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
   const [pedidos, setPedidos] = useState<PedidoNotif[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carga inicial de pedidos previos
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+  // Carga inicial de pedidos
   useEffect(() => {
     const fetchPedidos = async () => {
       try {
         const { data } = await axios.get<PedidoNotif[]>(
-          `http://localhost:3000/api/pedidos?id_negocio=${id_negocio}`
+          `${API_URL}/api/pedidos/negocio/${id_negocio}`
         );
-        setPedidos(data);
-      } catch {
+        // Asegura array válido
+        if (Array.isArray(data)) {
+          setPedidos(data);
+        } else if (Array.isArray((data as any).order)) {
+          setPedidos((data as any).order);
+        } else {
+          setPedidos([]);
+        }
+      } catch (error) {
+        console.error('Error al cargar pedidos:', error);
         toast.error('Error al cargar pedidos anteriores');
+        setPedidos([]);
       } finally {
         setLoading(false);
       }
     };
     fetchPedidos();
-  }, [id_negocio]);
+  }, [API_URL, id_negocio]);
 
   // Conexión WebSocket
   useEffect(() => {
-    socketRef.current = io('http://localhost:3000', {
+    socketRef.current = io(API_URL, {
       withCredentials: true,
       transports: ['websocket'],
     });
@@ -54,20 +66,32 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
     });
 
     socketRef.current.on('nuevo-pedido', (order: PedidoNotif) => {
-      console.log('Nuevo pedido recibido:', order);
       setPedidos((prev) => [order, ...prev]);
       toast.success(`🧾 Nuevo pedido #${order.id}`);
     });
 
+    socketRef.current.on('pedido-actualizado', (order: PedidoNotif) => {
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === order.id ? { ...p, estado: order.estado } : p
+        )
+      );
+      toast(`📦 Pedido #${order.id} → ${order.estado}`);
+    });
+
     socketRef.current.on('disconnect', (reason) => {
-      console.log('Socket desconectado:', reason);
+      console.warn('Socket desconectado:', reason);
+    });
+
+    socketRef.current.on('connect_error', (err) => {
+      console.error('Error de conexión WS:', err.message);
     });
 
     return () => {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, [id_negocio]);
+  }, [API_URL, id_negocio]);
 
   // Render
   return (
@@ -75,9 +99,10 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
       <h1 className="text-2xl font-bold mb-4">
         Dashboard — Negocio {id_negocio}
       </h1>
+
       {loading ? (
         <p className="text-gray-500">Cargando pedidos...</p>
-      ) : pedidos.length === 0 ? (
+      ) : !Array.isArray(pedidos) || pedidos.length === 0 ? (
         <p className="text-gray-500">No hay pedidos registrados.</p>
       ) : (
         <ul className="space-y-4">
@@ -86,12 +111,13 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
               <h2 className="font-bold text-lg mb-1">
                 Pedido #{pedido.id} — {pedido.tipo_pedido}
               </h2>
+              <p>Estado: {pedido.estado ?? 'pendiente'}</p>
               <p>Cliente: {pedido.cliente}</p>
               <p>Teléfono: {pedido.telefono}</p>
               {pedido.direccion && <p>Dirección: {pedido.direccion}</p>}
               <p>
                 Productos:{' '}
-                {pedido.productos
+                {(pedido.productos ?? [])
                   .map((p) => `${p.nombre} ×${p.cantidad}`)
                   .join(', ')}
               </p>
@@ -103,7 +129,8 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
                 }).format(pedido.total)}
               </p>
               <p className="text-sm text-gray-500">
-                Fecha: {new Date(pedido.fecha).toLocaleString()}
+                Fecha:{' '}
+                {pedido.fecha ? new Date(pedido.fecha).toLocaleString() : 'N/A'}
               </p>
             </li>
           ))}

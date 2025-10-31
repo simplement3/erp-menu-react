@@ -193,7 +193,7 @@ export class PedidosService {
     const saved = await this.pedidoRepository.save(pedido);
 
     if (typeof saved.id_negocio === 'number') {
-      this.ordersGateway.notifyPedidoActualizado(saved.id_negocio, saved);
+      this.ordersGateway.notifyNewOrder(saved.id_negocio, saved);
     }
 
     return saved;
