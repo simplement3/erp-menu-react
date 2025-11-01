@@ -27,21 +27,18 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-  // Carga inicial de pedidos
+  // Carga inicial
   useEffect(() => {
     const fetchPedidos = async () => {
       try {
         const { data } = await axios.get<PedidoNotif[]>(
           `${API_URL}/api/pedidos/negocio/${id_negocio}`
         );
-        // Asegura array válido
-        if (Array.isArray(data)) {
-          setPedidos(data);
-        } else if (Array.isArray((data as any).order)) {
+
+        if (Array.isArray(data)) setPedidos(data);
+        else if (Array.isArray((data as any).order))
           setPedidos((data as any).order);
-        } else {
-          setPedidos([]);
-        }
+        else setPedidos([]);
       } catch (error) {
         console.error('Error al cargar pedidos:', error);
         toast.error('Error al cargar pedidos anteriores');
@@ -53,24 +50,27 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
     fetchPedidos();
   }, [API_URL, id_negocio]);
 
-  // Conexión WebSocket
+  // WebSocket con reconexión segura
   useEffect(() => {
-    socketRef.current = io(API_URL, {
+    const socket = io(API_URL, {
       withCredentials: true,
       transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
     });
 
-    socketRef.current.on('connect', () => {
-      console.log('Socket conectado:', socketRef.current?.id);
-      socketRef.current?.emit('join', { id_negocio });
+    socket.on('connect', () => {
+      console.log(`✅ Socket conectado: ${socket.id}`);
+      socket.emit('join', { id_negocio });
     });
 
-    socketRef.current.on('nuevo-pedido', (order: PedidoNotif) => {
+    socket.on('nuevo-pedido', (order: PedidoNotif) => {
       setPedidos((prev) => [order, ...prev]);
       toast.success(`🧾 Nuevo pedido #${order.id}`);
     });
 
-    socketRef.current.on('pedido-actualizado', (order: PedidoNotif) => {
+    socket.on('pedido-actualizado', (order: PedidoNotif) => {
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === order.id ? { ...p, estado: order.estado } : p
@@ -79,21 +79,22 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
       toast(`📦 Pedido #${order.id} → ${order.estado}`);
     });
 
-    socketRef.current.on('disconnect', (reason) => {
-      console.warn('Socket desconectado:', reason);
+    socket.on('disconnect', (reason) => {
+      console.warn(`⚠️ Socket desconectado: ${reason}`);
     });
 
-    socketRef.current.on('connect_error', (err) => {
-      console.error('Error de conexión WS:', err.message);
+    socket.on('connect_error', (err) => {
+      console.warn(`❌ Error de conexión WS: ${err.message}`);
     });
+
+    socketRef.current = socket;
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.disconnect();
       socketRef.current = null;
     };
   }, [API_URL, id_negocio]);
 
-  // Render
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">
@@ -102,7 +103,7 @@ export const Dashboard = ({ id_negocio = 1 }: { id_negocio?: number }) => {
 
       {loading ? (
         <p className="text-gray-500">Cargando pedidos...</p>
-      ) : !Array.isArray(pedidos) || pedidos.length === 0 ? (
+      ) : pedidos.length === 0 ? (
         <p className="text-gray-500">No hay pedidos registrados.</p>
       ) : (
         <ul className="space-y-4">

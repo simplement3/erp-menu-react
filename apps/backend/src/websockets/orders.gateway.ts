@@ -8,6 +8,10 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Pedido } from '../pedidos/entities/pedido.entity';
 
+interface JoinPayload {
+  id_negocio?: number;
+}
+
 @WebSocketGateway({
   cors: { origin: 'http://localhost:5173', credentials: true },
   transports: ['websocket'],
@@ -29,9 +33,10 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join')
-  handleJoin(client: Socket, { id_negocio }: { id_negocio: number }) {
-    if (!id_negocio) {
-      client.emit('error', 'id_negocio es requerido para unirse');
+  handleJoin(client: Socket, payload: JoinPayload) {
+    const id_negocio = Number(payload.id_negocio);
+    if (!id_negocio || isNaN(id_negocio)) {
+      client.emit('error', 'id_negocio inválido o no recibido');
       return;
     }
 
@@ -40,7 +45,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.activeClients.set(client.id, id_negocio);
 
     console.log(`📡 Cliente ${client.id} unido a sala ${room}`);
-    client.emit('joinedRoom', `Unido a sala ${id_negocio}`);
+    client.emit('joinedRoom', { room });
   }
 
   notifyNewOrder(id_negocio: number, order: Pedido) {
@@ -58,7 +63,6 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  // NUEVO: emisión cuando cambia el estado
   notifyPedidoActualizado(id_negocio: number, order: Pedido) {
     const room = `negocio_${id_negocio}`;
     this.server.to(room).emit('pedido-actualizado', {
